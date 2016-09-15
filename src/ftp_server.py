@@ -124,8 +124,11 @@ class MyServer(socketserver.BaseRequestHandler):
         super(MyServer, self).finish()
 
 
-if __name__ == '__main__':
+def main():
     ip_port = ('0.0.0.0', 8888)
     myServer = socketserver.ThreadingTCPServer(ip_port, MyServer)
     print("server is running ... ")
     myServer.serve_forever()
+
+if __name__ == '__main__':
+    main()
