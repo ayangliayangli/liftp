@@ -103,25 +103,50 @@ def cmd_put(*args, **kwargs):
         my_sock.send(bytes('get quota', encoding='utf-8'))
         server_quota_fexist_json = str(my_sock.recv(1024), encoding='utf-8')
         server_quota_fexist_dict = json.loads(server_quota_fexist_json)
+        server_recved_size = int(server_quota_fexist_dict['server_file_size'])
 
         if server_quota_fexist_dict["quota"] == "over quota":
             print("server info: over quota ")
             return
 
+        if not server_recved_size:
+            # 服务器没有收到数据的方法
+            sended_size = 0
+            sended_size_persents_last = 0
+            with open(cmd_list[1], 'rb') as fp:
+                for line in fp:
+                    my_sock.send(line)
+                    # 显示进度条,要控制显示的粒度
+                    sended_size += len(line)
+                    sended_size_persents = int(sended_size/file_size * 100)
+                    if sended_size_persents - sended_size_persents_last >2 or sended_size_persents == 100:
+                        my_progress.show_bar(sended_size, file_size)
+                        sended_size_persents_last = sended_size_persents
+                print("\n-li--:sended file success")
+        else:
+            # 服务器端已经接收了一半的文件
+            # 开始发送数据
+            sended_size = server_recved_size
+            sended_size_persents_last = int(sended_size / file_size * 100)
+            s = 'server_recved_size:{} percents: {} file_size: {}'.format(
+                sended_size, sended_size_persents_last, file_size
+            )
+            with open(cmd_list[1], 'rb') as fp:
+                fp.seek(sended_size)
+                print('fp seek to position: {}'.format(fp.tell()))
+                for line in fp:
+                    my_sock.send(line)
+                    # 显示进度条,要控制显示的粒度
+                    sended_size += len(line)
+                    sended_size_persents = int(sended_size / file_size * 100)
+                    if sended_size_persents - sended_size_persents_last > 2 or sended_size_persents == 100:
+                        my_progress.show_bar(sended_size, file_size)
+                        sended_size_persents_last = sended_size_persents
+                print("\n-li--:sended file success")
 
-        # 开始发送数据
-        sended_size = 0
-        sended_size_persents_last = 0
-        with open(cmd_list[1], 'rb') as fp:
-            for line in fp:
-                my_sock.send(line)
-                # 显示进度条,要控制显示的粒度
-                sended_size += len(line)
-                sended_size_persents = int(sended_size/file_size * 100)
-                if sended_size_persents - sended_size_persents_last >2 or sended_size_persents == 100:
-                    my_progress.show_bar(sended_size, file_size)
-                    sended_size_persents_last = sended_size_persents
-            print("\n-li--:sended file success")
+
+
+
         # 等待验证
         print("wait server check sha256 ... ")
         server_check_info_str = str(my_sock.recv(1024), encoding='utf-8')

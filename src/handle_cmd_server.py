@@ -124,6 +124,17 @@ def cmd_put(*args, **kwargs):
     # 检查服务器端是否存在 该文件, 如果存在,要返回当前文件的大小
     # {"quota":"over quota | bellow quota", "server_file_size":""}
     send_data_quota_fexist = {}
+    server_file_exist_flag = False
+    if os.path.exists(server_file_abs_path):
+        # file is exist , get the size
+        server_file_exist_flag = True
+        server_file_size_bytes = os.path.getsize(server_file_abs_path)
+        send_data_quota_fexist['server_file_size'] = server_file_size_bytes
+        print("file is exist, size:{}".format(server_file_size_bytes))
+    else:
+        send_data_quota_fexist['server_file_size'] = 0
+        print("file is not exist")
+        pass
 
     # 检查磁盘配额, 如果磁盘满了,直接return
     request_quota_flag = str(conn.recv(1024), encoding='utf-8')
@@ -142,23 +153,52 @@ def cmd_put(*args, **kwargs):
     else:
         print("client should request quota infomation")
 
-    recved_size = 0
-    recved_size_percents_last = 0  # 每次加上2个个百分点以上才显示
+    # gen 刚开始的时候,已经收到的数据和百分比
+    if server_file_exist_flag:
+        recved_size = server_file_size_bytes
+        recved_size_percents_last = int(server_file_size_bytes / file_size * 100)
+    else:
+        recved_size = 0
+        recved_size_percents_last = 0  # 每次加上2个个百分点以上才显示
 
     # 开始接收文件本身
-    with open(server_file_abs_path, 'wb') as fp:
-        while recved_size < file_size:
-            current_recved_data_bytes = conn.recv(4096)
-            fp.write(current_recved_data_bytes)
-            recved_size += len(current_recved_data_bytes)
+    if server_file_exist_flag:
+        # 服务器端有文件时候的接收数据的方式
+        with open(server_file_abs_path, 'ab') as fp:
+            print("start recvdata -- recved_size: {}, recved_size_percents_last: {} , file_size: {}".format(
+                recved_size,
+                recved_size_percents_last,
+                file_size,
+            ))
+            while recved_size < file_size:
+                current_recved_data_bytes = conn.recv(4096)
+                fp.write(current_recved_data_bytes)
+                recved_size += len(current_recved_data_bytes)
 
-            # 显示进度条, 控制显示的粒度为2个点,否则屏幕输出太多,会卡死
-            recved_size_percents = int(recved_size / file_size * 100)
-            if recved_size_percents - recved_size_percents_last > 2 or recved_size_percents == 100:
-                my_progress.show_bar(recved_size, file_size)
-                recved_size_percents_last = recved_size_percents
-                # print("recved_size:{} file_size:{}".format(recved_size, file_size))
-        print("\nrecved success")
+                # 显示进度条, 控制显示的粒度为2个点,否则屏幕输出太多,会卡死
+                recved_size_percents = int(recved_size / file_size * 100)
+                if recved_size_percents - recved_size_percents_last > 2 or recved_size_percents == 100:
+                    my_progress.show_bar(recved_size, file_size)
+                    recved_size_percents_last = recved_size_percents
+                    # print("recved_size:{} file_size:{}".format(recved_size, file_size))
+            print("\nrecved success")
+    else:
+        # 服务器端没有文件的时候的接收数据方式
+        with open(server_file_abs_path, 'wb') as fp:
+            while recved_size < file_size:
+                current_recved_data_bytes = conn.recv(4096)
+                fp.write(current_recved_data_bytes)
+                recved_size += len(current_recved_data_bytes)
+
+                # 显示进度条, 控制显示的粒度为2个点,否则屏幕输出太多,会卡死
+                recved_size_percents = int(recved_size / file_size * 100)
+                if recved_size_percents - recved_size_percents_last > 2 or recved_size_percents == 100:
+                    my_progress.show_bar(recved_size, file_size)
+                    recved_size_percents_last = recved_size_percents
+                    # print("recved_size:{} file_size:{}".format(recved_size, file_size))
+            print("\nrecved success")
+
+
 
     # start check file sha256(hash)
     server_file_sha256 = myhash.hash_sha256_with_file(server_file_abs_path)
