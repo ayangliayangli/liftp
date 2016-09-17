@@ -68,6 +68,7 @@ def cmd_basic_execute(*args, **kwargs):
 def cmd_put(*args, **kwargs):
     cmd_list = args[0]
     my_sock = args[1]
+    user_work_dir = args[2]
     print("start put file to server")
 
     # 判断本地文件是否存在
@@ -84,7 +85,8 @@ def cmd_put(*args, **kwargs):
                     "client_file_name": client_file_name,
                     "server_path": server_path,
                     "file_size": file_size,
-                    "file_hash": file_hash, }
+                    "file_hash": file_hash,
+                    "wd":user_work_dir, }
     file_msg_str = json.dumps(file_msg_dic)
     print("----", type(file_msg_str), file_msg_str)
 
@@ -94,6 +96,19 @@ def cmd_put(*args, **kwargs):
     # wait for server ACK
     recv_data_str = str(my_sock.recv(1024), encoding='utf-8')
     if recv_data_str.startswith("ready"):
+
+        # request quota infomation
+        # server response quota info and 断电续传的信息
+        # {"quota":"", "server_file_size":""}
+        my_sock.send(bytes('get quota', encoding='utf-8'))
+        server_quota_fexist_json = str(my_sock.recv(1024), encoding='utf-8')
+        server_quota_fexist_dict = json.loads(server_quota_fexist_json)
+
+        if server_quota_fexist_dict["quota"] == "over quota":
+            print("server info: over quota ")
+            return
+
+
         # 开始发送数据
         sended_size = 0
         sended_size_persents_last = 0

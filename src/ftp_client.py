@@ -84,12 +84,13 @@ def main():
             cmd_first = "cmd_" + cmd_list[0]  # put ---> cmd_put
 
             if cmd_first == "cmd_put":
-                if len(cmd_list) < 2:
+                if len(cmd_list) < 2 or len(cmd_list) > 3:
                     # 输入命令错误,重新输入
                     print("USAGE: put sorce_file_path  dist_file_path")
                     print("USAGE: put sorce_file_path")
                     continue
                 else:
+                    if len(cmd_list) == 2: cmd_list.append("") # 如果没有指定server path,那就默认当前目录
                     break
             elif cmd_first == "cmd_cd":
                 if len(cmd_list) < 2:

@@ -16,7 +16,7 @@ import os, sys, subprocess, re, json
 import configparser
 from lib import myhash, my_progress, my_subprocess
 from config import setting
-
+from lib import get_dir_size
 
 def get_config_file_value(section, key):
     config = configparser.ConfigParser()
@@ -86,6 +86,20 @@ def cmd_basic_execute(*args, **kwargs):
     return res_str
 
 
+def get_user_quota_bytes(logined_user):
+    user_quota_str = str(get_config_file_value(logined_user, "quota"))
+    print("user_quota_in_config:", user_quota_str)
+    number, unit, normal_null = re.split('([kKmMgG])', user_quota_str)
+
+    if unit == "m" or unit == "M":
+        user_quota_bytes = int(number) * 1000 * 1000
+    elif unit == "k" or unit == "K":
+        user_quota_bytes = int(number) * 1000
+    elif unit == "g" or unit == "G":
+        user_quota_bytes = int(number) * 1000 * 1000 * 1000
+
+    return user_quota_bytes
+
 
 def cmd_put(*args, **kwargs):
     recv_data_dic = args[0]
@@ -93,6 +107,7 @@ def cmd_put(*args, **kwargs):
     logined_user = args[2]
     user_home_dir = get_config_file_value(logined_user, "home")
     user_chroot_flag = get_config_file_value(logined_user, "chroot")
+    user_quota_bytes = get_user_quota_bytes(logined_user)
 
 
 
@@ -101,8 +116,31 @@ def cmd_put(*args, **kwargs):
     server_path = recv_data_dic["server_path"]  # 客户端传过来,用户希望上传到的相对位置
     file_size = recv_data_dic["file_size"]  # 客户端传过来, 文件大小
     file_hash = recv_data_dic["file_hash"]  # 客户端传过来, 文件hash
-    server_file_abs_path = os.path.join(user_home_dir, server_path, client_file_name)  # 服务器端构造的 文件的绝对路径
+    user_work_dir = recv_data_dic["wd"]
+    server_file_abs_path = os.path.join(user_work_dir, server_path, client_file_name)  # 服务器端构造的 文件的绝对路径
     print('server_file_abs_path:{}'.format(server_file_abs_path))
+
+
+    # 检查服务器端是否存在 该文件, 如果存在,要返回当前文件的大小
+    # {"quota":"over quota | bellow quota", "server_file_size":""}
+    send_data_quota_fexist = {}
+
+    # 检查磁盘配额, 如果磁盘满了,直接return
+    request_quota_flag = str(conn.recv(1024), encoding='utf-8')
+    if request_quota_flag == "get quota":
+        server_dirsize_forecast = get_dir_size.get_dir_size(user_home_dir) + file_size
+        print('forecast size: {} bytes, quota: {} bytes'.format(server_dirsize_forecast, user_quota_bytes))
+
+        if server_dirsize_forecast > user_quota_bytes :
+            # over quota
+            send_data_quota_fexist['quota'] = 'over quota'
+            conn.send(bytes(json.dumps(send_data_quota_fexist), encoding='utf-8'))
+            return
+        else:
+            send_data_quota_fexist['quota'] = 'below quota'
+            conn.send(bytes(json.dumps(send_data_quota_fexist), encoding='utf-8'))
+    else:
+        print("client should request quota infomation")
 
     recved_size = 0
     recved_size_percents_last = 0  # 每次加上2个个百分点以上才显示
@@ -283,5 +321,11 @@ def cmd_ll(*args, **kwargs):
 
 
 if __name__ == '__main__':
-    res = my_subprocess.execute_cmd("ls", "/data/yangli.d/")
-    print(res)
+    # res = my_subprocess.execute_cmd("ls", "/data/yangli.d/")
+    # print(res)
+
+    # test get quota units: bytes
+    # res = get_user_quota_bytes("yangli")
+    # print(res)
+    pass
+
