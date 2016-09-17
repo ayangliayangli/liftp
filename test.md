@@ -15,3 +15,9 @@
         home = /data/dujuan.d/
         chroot = False
         quota = 10M
+     
+# 测试建议
+
+* 没有做新建用户的接口,直接使用内置的用户吧
+* 为了测试磁盘配额,建议修改一下配置文件钟的quota
+
