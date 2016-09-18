@@ -82,10 +82,8 @@ class MyServer(socketserver.BaseRequestHandler):
             elif auth_res == 2:
                 # password is wrong
                 print("password is wrong")
-                continue
             elif auth_res == 3:
                 print("user is not exist")
-                continue
             else:
                 print("user_admin.User.login return wrong ")
 

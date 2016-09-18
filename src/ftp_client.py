@@ -25,6 +25,20 @@ work_direction = ""
 chroot_flag = False
 
 
+def show_help():
+    s = '''
+        ls                          -- list current work direction simple
+        ll                          -- list current work direction with long mode
+        mkdir dir                   -- make dir
+        rm dir/filename             -- remove dir or remove filename
+        cd dir/..                   -- change work direction to [dir] or parrent dir [..]
+        put localfile [server_dir]  -- put localfile to server dir, [server_dir] is optional, current work direction is default
+        get serverfile local_dir    -- get serverfile to local direction
+
+    '''
+    print(s)
+
+
 def login(my_sock):
     print("you should login first, if you do not have account , contact administrator")
     while not logined_user:
@@ -47,6 +61,7 @@ def login(my_sock):
             logined_user = name  # 把当前登录用户信息放在全局变量中
             work_direction = auth_res_work_direction  # 当前工作目录
             chroot_flag = auth_res_chroot_flag  # 是否允许改变家目录的标志位
+            show_help()  # show help information
             break  # 登录成功跳出循环
         elif auth_res_status_code == 2:
             print("user:{} password is wrong".format(name))
@@ -117,6 +132,8 @@ def main():
                     break
                 else:
                     print("USEAGE: get remote_file local_dir")
+            elif cmd_first == "cmd_help" or cmd_first == 'cmd_?':
+                show_help()
             else:
                 print("{} comming soon perhaps".format(cmd_list[0]))
 
